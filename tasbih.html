@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#101a24">
+<title>Тасбих</title>
+<script async src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root {
+  --ink: #101a24;        /* фон: тёмный сине-зелёный камень */
+  --ink-2: #172431;      /* кнопки и панели */
+  --sand: #ece2cb;       /* основной текст, бусины */
+  --stone: #8f9aa6;      /* второстепенный текст */
+  --turquoise: #4fd1c5;  /* единственный акцент: бирюза, камень чёток */
+  --bead-off: #3a4654;
+  --radius: 18px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  background: radial-gradient(120% 70% at 50% 38%, #1b2c3a 0%, var(--ink) 62%);
+  color: var(--sand);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  display: flex; flex-direction: column; align-items: center;
+  padding: max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom));
+  overflow-x: hidden; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+}
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--turquoise); outline-offset: 3px; }
+.app { width: 100%; max-width: 440px; display: flex; flex-direction: column; align-items: center; gap: 12px; flex: 1; }
+
+.top { width: 100%; display: flex; justify-content: space-between; align-items: center; min-height: 40px; }
+.top h1 { font-size: 17px; font-weight: 600; letter-spacing: .01em; }
+.icon-btn { padding: 9px 14px; border-radius: 999px; background: var(--ink-2); color: var(--stone); font-size: 14px; }
+.icon-btn[aria-expanded="true"] { color: var(--ink); background: var(--sand); }
+
+.zikr { text-align: center; padding: 2px 8px 0; min-height: 132px; }
+.ar { font-family: "Amiri", "Noto Naskh Arabic", "Scheherazade New", "Droid Arabic Naskh", "Geeza Pro", "Traditional Arabic", serif;
+      font-size: 38px; line-height: 1.7; direction: rtl; color: var(--sand); }
+.tr { font-size: 18px; font-weight: 600; margin-top: 2px; }
+.ru { font-size: 14px; color: var(--stone); margin-top: 3px; }
+
+.chips { display: flex; gap: 8px; overflow-x: auto; width: calc(100% + 32px); padding: 2px 16px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; padding: 8px 14px; border-radius: 999px; background: var(--ink-2); color: var(--stone); font-size: 14px; white-space: nowrap; }
+.chip[aria-pressed="true"] { background: var(--sand); color: var(--ink); font-weight: 600; }
+.steps { font-size: 14px; color: var(--stone); min-height: 34px; display: flex; align-items: center; }
+
+.dial { position: relative; width: min(84vw, 340px); aspect-ratio: 1; margin: 2px 0; }
+.dial svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bead { fill: var(--bead-off); transition: fill .12s; }
+.bead.on { fill: var(--turquoise); }
+.bead.now { filter: drop-shadow(0 0 5px var(--turquoise)); }
+.tap {
+  position: absolute; inset: 15%; border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #26384a 0%, #152230 70%);
+  box-shadow: inset 0 0 0 2px #2c3d4e, 0 14px 30px rgba(0, 0, 0, .45);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  transition: transform .08s;
+}
+.tap:active, .tap.press { transform: scale(.965); }
+.count { font-size: clamp(60px, 22vw, 92px); font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums; color: var(--sand); }
+.of { font-size: 14px; color: var(--stone); min-height: 18px; }
+.note { min-height: 22px; font-size: 15px; color: var(--turquoise); text-align: center; }
+
+.row { display: flex; gap: 10px; }
+.act { padding: 11px 18px; border-radius: var(--radius); background: var(--ink-2); color: var(--sand); font-size: 15px; }
+.act.warn { color: var(--ink); background: #e8b4a8; }
+.stats { font-size: 14px; color: var(--stone); text-align: center; line-height: 1.5; margin-top: auto; padding-top: 6px; }
+
+.panel { width: 100%; background: var(--ink-2); border-radius: var(--radius); padding: 14px; display: none; flex-direction: column; gap: 14px; }
+.panel.open { display: flex; }
+.panel h2 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.opt { padding: 8px 14px; border-radius: 999px; background: #0f1822; color: var(--stone); font-size: 14px; }
+.opt[aria-pressed="true"] { background: var(--turquoise); color: var(--ink); font-weight: 600; }
+.panel input[type="number"] { width: 96px; padding: 8px 10px; border-radius: 12px; border: 1px solid #2c3d4e; background: #0f1822; color: var(--sand); font-size: 15px; }
+.hint { font-size: 12px; color: var(--stone); line-height: 1.4; }
+
+@media (prefers-reduced-motion: reduce) { .tap, .bead { transition: none; } }
+@media (max-height: 700px) { .zikr { min-height: 104px; } .ar { font-size: 30px; line-height: 1.5; } .dial { width: min(70vw, 280px); } }
+</style>
+</head>
+<body>
+<main class="app">
+  <div class="top">
+    <h1 id="title">Тасбих</h1>
+    <button class="icon-btn" id="btn-settings" aria-expanded="false" aria-controls="panel">Настройки</button>
+  </div>
+
+  <section class="panel" id="panel" aria-label="Настройки">
+    <div>
+      <h2>Режим</h2>
+      <div class="opts" id="opt-mode">
+        <button class="opt" data-mode="single">Один зикр</button>
+        <button class="opt" data-mode="after">После намаза: 33, 33, 34</button>
+      </div>
+    </div>
+    <div id="target-block">
+      <h2>Цель для одного круга</h2>
+      <div class="opts" id="opt-target">
+        <button class="opt" data-target="33">33</button>
+        <button class="opt" data-target="99">99</button>
+        <button class="opt" data-target="100">100</button>
+        <button class="opt" data-target="500">500</button>
+        <button class="opt" data-target="1000">1000</button>
+        <button class="opt" data-target="0">Без цели</button>
+      </div>
+      <div class="opts" style="margin-top:8px; align-items:center">
+        <input type="number" id="custom-target" min="1" max="100000" inputmode="numeric" placeholder="своя цель" aria-label="Своя цель">
+        <button class="opt" id="btn-custom">Задать</button>
+      </div>
+    </div>
+    <div>
+      <h2>Устройство</h2>
+      <div class="opts">
+        <button class="opt" id="opt-vib" aria-pressed="true">Вибрация</button>
+        <button class="opt" id="opt-wake" aria-pressed="false">Не гасить экран</button>
+      </div>
+    </div>
+    <p class="hint">Счёт и статистика хранятся только на этом устройстве, в памяти браузера или Telegram.</p>
+  </section>
+
+  <div class="zikr" aria-live="polite">
+    <div class="ar" id="ar" lang="ar"></div>
+    <div class="tr" id="tr"></div>
+    <div class="ru" id="ru"></div>
+  </div>
+
+  <div class="chips" id="chips" role="group" aria-label="Выбор зикра"></div>
+  <div class="steps" id="steps" hidden></div>
+
+  <div class="dial" id="dial">
+    <svg viewBox="0 0 360 360" aria-hidden="true" id="ring"></svg>
+    <button class="tap" id="tap" aria-label="Добавить один">
+      <span class="count" id="count" aria-live="off">0</span>
+      <span class="of" id="of"></span>
+    </button>
+  </div>
+
+  <div class="note" id="note" role="status"></div>
+
+  <div class="row">
+    <button class="act" id="btn-undo">Отменить один</button>
+    <button class="act" id="btn-reset">Сначала</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+</main>
+
+<script>
+// ===== Зикры =====
+const ZIKRS = {
+  subhan:   { chip: "Субханаллах",    ar: "سُبْحَانَ اللَّهِ",          tr: "Субханаллах",        ru: "Пречист Аллах",                  target: 33 },
+  hamd:     { chip: "Альхамдулиллях", ar: "الْحَمْدُ لِلَّهِ",          tr: "Альхамдулиллях",     ru: "Хвала Аллаху",                   target: 33 },
+  akbar:    { chip: "Аллаху акбар",   ar: "اللَّهُ أَكْبَرُ",           tr: "Аллаху акбар",       ru: "Аллах превыше всего",            target: 33 },
+  tahlil:   { chip: "Ля иляха илляллах", ar: "لَا إِلَٰهَ إِلَّا اللَّهُ", tr: "Ля иляха илляллах", ru: "Нет божества, кроме Аллаха",     target: 100 },
+  istigfar: { chip: "Астагфируллах",  ar: "أَسْتَغْفِرُ اللَّهَ",       tr: "Астагфируллах",      ru: "Прошу прощения у Аллаха",        target: 100 },
+  salawat:  { chip: "Салават",        ar: "اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ", tr: "Аллахумма салли ’аля Мухаммад", ru: "О Аллах, благослови Мухаммада", target: 100 },
+  free:     { chip: "Свободный счёт", ar: "",                            tr: "Свободный счёт",     ru: "Считайте без цели",              target: 0 }
+};
+const AFTER = [["subhan", 33], ["hamd", 33], ["akbar", 34]];
+const BEADS = 33;
+const KEY = "tasbih.v1";
+
+// ===== Состояние =====
+let st = { mode: "single", zikr: "subhan", target: 33, count: 0, rounds: 0, step: 0, done: false, vib: true, wake: false };
+let stats = { total: 0, days: {} };
+
+function today() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function load() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (raw) { st = Object.assign(st, raw.st || {}); stats = Object.assign(stats, raw.stats || {}); }
+  } catch (e) {}
+  if (!ZIKRS[st.zikr]) st.zikr = "subhan";
+  if (st.mode !== "single" && st.mode !== "after") st.mode = "single";
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify({ st, stats })); } catch (e) {}
+}
+
+// ===== Обратная связь (вибрация) =====
+function haptic(kind) {
+  if (!st.vib) return;
+  try {
+    const tgw = window.Telegram && window.Telegram.WebApp;
+    if (tgw && tgw.HapticFeedback) {
+      if (kind === "done") tgw.HapticFeedback.notificationOccurred("success");
+      else tgw.HapticFeedback.impactOccurred("light");
+      return;
+    }
+  } catch (e) {}
+  try {
+    if (navigator.vibrate) navigator.vibrate(kind === "done" ? [40, 60, 40] : 12);
+  } catch (e) {}
+}
+
+// ===== Логика счёта =====
+let noteTimer = null;
+function flash(text) {
+  document.getElementById("note").textContent = text;
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => { document.getElementById("note").textContent = ""; }, 2600);
+}
+function addDay(n) {
+  const k = today();
+  stats.days[k] = Math.max(0, (stats.days[k] || 0) + n);
+  stats.total = Math.max(0, stats.total + n);
+}
+function tap() {
+  if (st.done) {  // новый тасбих после завершённого
+    st.done = false; st.step = 0; st.count = 0;
+    const [z, t] = AFTER[0]; st.zikr = z; st.target = t;
+  }
+  st.count++;
+  addDay(1);
+  const reached = st.target > 0 && st.count >= st.target;
+  if (reached) {
+    haptic("done");
+    if (st.mode === "after") {
+      if (st.step < AFTER.length - 1) {
+        st.step++;
+        const [z, t] = AFTER[st.step];
+        st.zikr = z; st.target = t; st.count = 0;
+        flash("Дальше: " + ZIKRS[z].tr);
+      } else {
+        st.done = true;
+        flash("Тасбих завершён. Нажмите, чтобы начать заново");
+      }
+    } else {
+      st.rounds++; st.count = 0;
+      flash("Круг завершён: " + st.rounds);
+    }
+  } else {
+    haptic("tap");
+  }
+  render();
+  save();
+}
+function undo() {
+  if (st.done || st.count <= 0) { flash("Отменять нечего"); return; }
+  st.count--; addDay(-1);
+  render(); save();
+}
+let resetArmed = false, resetTimer = null;
+function reset() {
+  const btn = document.getElementById("btn-reset");
+  if (!resetArmed) {
+    resetArmed = true; btn.textContent = "Точно сначала?"; btn.classList.add("warn");
+    resetTimer = setTimeout(disarm, 3000);
+    return;
+  }
+  disarm();
+  st.count = 0; st.rounds = 0; st.done = false;
+  if (st.mode === "after") { st.step = 0; const [z, t] = AFTER[0]; st.zikr = z; st.target = t; }
+  render(); save();
+}
+function disarm() {
+  resetArmed = false; clearTimeout(resetTimer);
+  const btn = document.getElementById("btn-reset");
+  btn.textContent = "Сначала"; btn.classList.remove("warn");
+}
+
+function setMode(mode) {
+  st.mode = mode; st.count = 0; st.rounds = 0; st.done = false; st.step = 0;
+  if (mode === "after") { const [z, t] = AFTER[0]; st.zikr = z; st.target = t; }
+  else { st.target = ZIKRS[st.zikr].target; }
+  render(); save();
+}
+function setZikr(key) {
+  st.zikr = key; st.count = 0; st.rounds = 0; st.done = false;
+  st.target = ZIKRS[key].target;
+  render(); save();
+}
+function setTarget(n) {
+  st.target = n; st.count = 0; st.rounds = 0; st.done = false;
+  render(); save();
+}
+
+// ===== Отрисовка =====
+const NS = "http://www.w3.org/2000/svg";
+function buildRing() {
+  const ring = document.getElementById("ring");
+  for (let i = 0; i < BEADS; i++) {
+    const a = (i / BEADS) * Math.PI * 2 - Math.PI / 2;
+    const c = document.createElementNS(NS, "circle");
+    c.setAttribute("cx", (180 + 160 * Math.cos(a)).toFixed(2));
+    c.setAttribute("cy", (180 + 160 * Math.sin(a)).toFixed(2));
+    c.setAttribute("r", "8.5");
+    c.setAttribute("class", "bead");
+    ring.appendChild(c);
+  }
+}
+function litBeads() {
+  if (st.done) return BEADS;
+  if (st.target > 0) return Math.floor(st.count * BEADS / st.target);
+  return st.count > 0 && st.count % BEADS === 0 ? BEADS : st.count % BEADS;
+}
+function streakDays() {
+  let n = 0;
+  const d = new Date();
+  if (!(stats.days[today()] > 0)) d.setDate(d.getDate() - 1);  // сегодня ещё не считали: серия до вчера
+  for (;;) {
+    const k = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    if (stats.days[k] > 0) { n++; d.setDate(d.getDate() - 1); } else break;
+  }
+  return n;
+}
+function plural(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+  return many;
+}
+function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0"); }
+
+function render() {
+  const z = ZIKRS[st.zikr];
+  document.getElementById("ar").textContent = z.ar;
+  document.getElementById("tr").textContent = z.tr;
+  document.getElementById("ru").textContent = z.ru;
+  document.getElementById("count").textContent = st.done ? st.target : st.count;
+  let of = "";
+  if (st.done) of = "готово";
+  else if (st.target > 0) of = "из " + st.target;
+  document.getElementById("of").textContent = of;
+
+  const chips = document.getElementById("chips");
+  const steps = document.getElementById("steps");
+  chips.hidden = st.mode === "after";
+  steps.hidden = st.mode !== "after";
+  if (st.mode === "after") steps.textContent = "Шаг " + (st.step + 1) + " из " + AFTER.length + ": " + AFTER.map(a => a[1]).join(", ");
+  chips.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.zikr === st.zikr)));
+
+  const lit = litBeads();
+  document.querySelectorAll("#ring .bead").forEach((c, i) => {
+    c.classList.toggle("on", i < lit);
+    c.classList.toggle("now", i === lit - 1 && !st.done);
+  });
+
+  document.querySelectorAll("#opt-mode .opt").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === st.mode)));
+  document.getElementById("target-block").hidden = st.mode === "after";
+  document.querySelectorAll("#opt-target .opt").forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.target) === st.target)));
+  document.getElementById("opt-vib").setAttribute("aria-pressed", String(st.vib));
+  document.getElementById("opt-wake").setAttribute("aria-pressed", String(st.wake));
+
+  const t = stats.days[today()] || 0, s = streakDays();
+  const parts = ["Сегодня: " + fmt(t), "всего: " + fmt(stats.total)];
+  if (st.mode === "single" && st.rounds > 0) parts.push("кругов: " + st.rounds);
+  document.getElementById("stats").innerHTML =
+    parts.join(", ") + (s > 0 ? "<br>" + s + " " + plural(s, "день", "дня", "дней") + " подряд" : "");
+}
+
+// ===== Не гасить экран =====
+let wakeLock = null;
+async function applyWake() {
+  try {
+    if (st.wake && "wakeLock" in navigator) { wakeLock = await navigator.wakeLock.request("screen"); }
+    else if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && st.wake) applyWake(); });
+
+// ===== Привязка =====
+function init() {
+  load();
+  buildRing();
+  const chips = document.getElementById("chips");
+  Object.keys(ZIKRS).forEach(key => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.dataset.zikr = key; b.textContent = ZIKRS[key].chip;
+    b.addEventListener("click", () => setZikr(key));
+    chips.appendChild(b);
+  });
+
+  const tapBtn = document.getElementById("tap");
+  // pointerdown отзывчивее click при быстрых нажатиях
+  tapBtn.addEventListener("pointerdown", e => { e.preventDefault(); tapBtn.classList.add("press"); tap(); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => tapBtn.addEventListener(ev, () => tapBtn.classList.remove("press")));
+  tapBtn.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && !e.repeat) { e.preventDefault(); tap(); } });
+
+  document.getElementById("btn-undo").addEventListener("click", undo);
+  document.getElementById("btn-reset").addEventListener("click", reset);
+  document.getElementById("btn-settings").addEventListener("click", e => {
+    const open = document.getElementById("panel").classList.toggle("open");
+    e.currentTarget.setAttribute("aria-expanded", String(open));
+  });
+  document.querySelectorAll("#opt-mode .opt").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
+  document.querySelectorAll("#opt-target .opt").forEach(b => b.addEventListener("click", () => setTarget(Number(b.dataset.target))));
+  document.getElementById("btn-custom").addEventListener("click", () => {
+    const n = parseInt(document.getElementById("custom-target").value, 10);
+    if (n >= 1 && n <= 100000) setTarget(n); else flash("Введите число от 1 до 100 000");
+  });
+  document.getElementById("opt-vib").addEventListener("click", () => { st.vib = !st.vib; if (st.vib) haptic("tap"); render(); save(); });
+  document.getElementById("opt-wake").addEventListener("click", () => { st.wake = !st.wake; applyWake(); render(); save(); });
+
+  try {
+    const tgw = window.Telegram && window.Telegram.WebApp;
+    if (tgw) { tgw.ready(); tgw.expand(); if (tgw.setHeaderColor) tgw.setHeaderColor("#101a24"); if (tgw.setBackgroundColor) tgw.setBackgroundColor("#101a24"); }
+  } catch (e) {}
+  if (st.wake) applyWake();
+  render();
+}
+init();
+</script>
+</body>
+</html>
